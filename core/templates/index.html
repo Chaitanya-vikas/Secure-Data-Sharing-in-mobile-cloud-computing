@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="glass-card">
+    <h2 class="text-center">Store New Secret</h2>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        
+        <input type="text" name="title" placeholder="Title (e.g., Bank Password)" required>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <textarea name="secret_text" placeholder="Option 1: Type your secret text..." rows="3"></textarea>
+            
+            <div style="border: 1px dashed var(--glass-border); padding: 20px; text-align: center; border-radius: 8px;">
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">Option 2: Upload Image</p>
+                <input type="file" name="secret_file" accept="image/*" style="background: transparent; border: none;">
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Encrypt & Save to Database</button>
+    </form>
+</div>
+
+<div class="glass-card">
+    <h3>📂 Your Encrypted Vault</h3>
+    {% if all_data %}
+        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
+            {% for item in all_data %}
+            <div class="secret-item">
+                <div>
+                    <strong>{{ item.title }}</strong>
+                    <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">{{ item.created_at|default:"Stored Securely" }}</span>
+                </div>
+                
+                <div class="actions">
+                    <a href="{% url 'download_file' item.id %}" title="Download Decrypted">
+                        📄
+                    </a>
+
+                    <a href="{% url 'download_encrypted' item.id %}" title="Download Encrypted Raw">
+                        🔒
+                    </a>
+
+                    <form action="{% url 'delete_file' item.id %}" method="POST" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-danger" onclick="return confirm('Delete this secret permanently?');">X</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="text-center" style="color: var(--text-muted); padding: 20px;">Vault is empty.</p>
+    {% endif %}
+</div>
+
+{% endblock %}
