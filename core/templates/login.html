@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="glass-card" style="max-width: 400px; margin: 50px auto;">
+    <h2 class="text-center">Welcome Back</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Login to Vault</button>
+    </form>
+    <p class="text-center" style="margin-top: 20px;">
+        New here? <a href="{% url 'signup' %}" class="btn-link">Create Secure Account</a>
+    </p>
+</div>
+{% endblock %}

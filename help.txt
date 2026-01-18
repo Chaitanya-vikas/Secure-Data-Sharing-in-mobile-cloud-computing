@@ -1,0 +1,4 @@
+_______To Run project_____
+-->>   venv\Scripts\activate
+-->>   python manage.py runserver
+

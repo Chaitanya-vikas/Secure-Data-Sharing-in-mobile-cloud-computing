@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="glass-card text-center" style="max-width: 500px; margin: 0 auto;">
+    <h2>🔐 Setup 2FA</h2>
+    
+    {% if qr_code %}
+        <p style="color: var(--text-muted); margin-bottom: 20px;">Scan this with Google Authenticator</p>
+        <div style="background: white; padding: 10px; display: inline-block; border-radius: 8px;">
+            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+        </div>
+        
+        <form method="POST" style="margin-top: 20px;">
+            {% csrf_token %}
+            <input type="text" name="token" placeholder="Enter 6-digit code" style="text-align: center; font-size: 1.2rem; letter-spacing: 5px; width: 200px;" required>
+            <br>
+            <button type="submit" class="btn btn-primary">Verify & Activate</button>
+        </form>
+
+    {% elif already_setup %}
+        <h3 style="color: #4ade80;">✓ 2FA Active</h3>
+        <p style="margin-bottom: 20px;">Your account is secured.</p>
+        
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="reset" value="true">
+            <button type="submit" class="btn-danger">⚠ Reset 2FA Keys</button>
+        </form>
+        <br>
+        <a href="{% url 'index' %}" class="btn btn-primary">Go to Dashboard</a>
+    {% endif %}
+
+    {% if error %}
+        <p style="color: var(--danger); margin-top: 10px;">{{ error }}</p>
+    {% endif %}
+</div>
+{% endblock %}
