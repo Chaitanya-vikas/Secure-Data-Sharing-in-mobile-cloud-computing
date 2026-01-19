@@ -28,7 +28,8 @@ from core.views import (
     logout_view,
     setup_2fa,   # <--- You were likely missing this one
     verify_2fa,   # <--- And this one
-    download_encrypted_file   # <--- IMPORT THIS
+    download_encrypted_file,   # <--- IMPORT THIS
+    decrypt_tool
 )
 
 urlpatterns = [
@@ -51,4 +52,6 @@ urlpatterns = [
     path('download-enc/<int:file_id>/', download_encrypted_file, name='download_encrypted'),
 
     path('delete/<int:file_id>/', delete_file, name='delete_file'),
+    path('decrypt-tool/', decrypt_tool, name='decrypt_tool'),
+
 ]

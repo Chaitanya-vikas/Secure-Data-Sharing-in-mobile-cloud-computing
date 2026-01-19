@@ -196,19 +196,87 @@ def delete_file(request, file_id):
 
 # Add this to the bottom of core/views.py
 
+# In core/views.py
+
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def download_encrypted_file(request, file_id):
-    # Security Check: Ensure user owns the file
     entry = get_object_or_404(UserData, pk=file_id, user=request.user)
-    
-    # We grab the RAW encrypted bytes directly from the model
     raw_data = entry.encrypted_content
-    
-    # 'application/octet-stream' tells the browser "this is a binary file, just download it"
     response = HttpResponse(raw_data, content_type='application/octet-stream')
     
-    # We add .enc or .bin to the filename to show it is encrypted
-    filename = f"{entry.title}_encrypted.bin"
+    # NEW: We put the ID in the filename (e.g., "ID_4_BankPass.bin")
+    filename = f"ID_{entry.id}_{entry.title}_encrypted.bin"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+    # Add this to the bottom of core/views.py
+from cryptography.fernet import InvalidToken # Import for error handling
+
+# Replace your existing decrypt_tool function in core/views.py
+
+# In core/views.py
+
+@user_passes_test(is_2fa_verified, login_url='verify_2fa')
+def decrypt_tool(request):
+    user_secrets = UserData.objects.filter(user=request.user)
+    decrypted_text = None
+    decrypted_image = None
+    error_message = None
+
+    if request.method == 'POST':
+        uploaded_file = request.FILES.get('encrypted_file')
+        secret_id = request.POST.get('secret_id')
+        
+        if uploaded_file:
+            try:
+                # 1. Auto-detect ID from filename if not selected
+                if not secret_id:
+                    import re
+                    match = re.search(r'ID_(\d+)_', uploaded_file.name)
+                    if match:
+                        secret_id = match.group(1)
+                
+                if not secret_id:
+                    raise Exception("Could not detect Secret ID from filename. Please select the Key manually.")
+
+                # 2. Get the Key Object
+                entry = get_object_or_404(UserData, pk=secret_id, user=request.user)
+                
+                # 3. Read uploaded bytes and Swap
+                file_bytes = uploaded_file.read()
+                entry.encrypted_content = file_bytes 
+                
+                # 4. Decrypt
+                raw_result = entry.get_secret()
+                
+                # 5. Handle Image vs Text (WITH FIX)
+                if entry.file_extension in ['.jpg', '.jpeg', '.png']:
+                    import base64
+                    # If raw_result is already a string (rare but possible), encode it back to bytes first
+                    if isinstance(raw_result, str):
+                        raw_result = raw_result.encode('utf-8')
+                        
+                    b64_img = base64.b64encode(raw_result).decode('utf-8')
+                    mime_type = 'image/jpeg' if 'jpg' in entry.file_extension else 'image/png'
+                    decrypted_image = f"data:{mime_type};base64,{b64_img}"
+                else:
+                    # --- THE FIX IS HERE ---
+                    if isinstance(raw_result, bytes):
+                        # If it's bytes, we decode it to string
+                        decrypted_text = raw_result.decode('utf-8')
+                    else:
+                        # If it's already a string, we just use it
+                        decrypted_text = raw_result
+
+            except InvalidToken:
+                error_message = "❌ Decryption Failed: The file content does not match the Key for ID #" + str(secret_id)
+            except Exception as e:
+                error_message = f"❌ Error: {str(e)}"
+
+    return render(request, 'decrypt_tool.html', {
+        'user_secrets': user_secrets,
+        'decrypted_text': decrypted_text,
+        'decrypted_image': decrypted_image,
+        'error_message': error_message
+    })
