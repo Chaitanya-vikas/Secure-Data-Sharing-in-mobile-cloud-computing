@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-69do6o0v*+u#q51943#(1wa^zcb6v^(*wk1hhlmyly-#jse7ho
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -84,17 +84,33 @@ WSGI_APPLICATION = 'secure_vault.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'vault_db',
-        'USER': 'root',           # YOUR MySQL username
-        'PASSWORD': '1234', # YOUR MySQL password
-        'HOST': 'localhost',
-        'PORT': '3306',
-    }
-}
+# secure_vault/settings.py
 
+import os
+
+# Check if we are running on PythonAnywhere (Live Server)
+if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'YOUR_PYTHONANYWHERE_USERNAME$vault_live',  # We will create this name later
+            'USER': 'YOUR_PYTHONANYWHERE_USERNAME',
+            'PASSWORD': 'YOUR_DB_PASSWORD',     # You will set this later
+            'HOST': 'YOUR_PYTHONANYWHERE_USERNAME.mysql.pythonanywhere-services.com',
+        }
+    }
+else:
+    # Localhost (Your Laptop) settings
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'vault_db',
+            'USER': 'root',
+            'PASSWORD': 'YOUR_LOCAL_PASSWORD', # Keep your local password here
+            'HOST': 'localhost',
+            'PORT': '3306',
+        }
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -131,3 +147,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

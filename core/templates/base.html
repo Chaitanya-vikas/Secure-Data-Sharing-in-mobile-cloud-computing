@@ -12,9 +12,11 @@
     {% if user.is_authenticated %}
     <div class="nav-header fade-in">
         <h3>🔒 Secure Vault</h3>
-        <div>
-            <span style="margin-right: 15px; color: var(--text-muted);">{{ user.username }}</span>
-            <a href="{% url 'logout' %}" class="btn-danger" style="border-radius: 20px;">Logout</a>
+        
+       <div>
+        <span style="margin-right: 15px; color: var(--text-muted);">{{ user.username }}</span>
+        <a href="{% url 'decrypt_tool' %}" class="btn-primary" style="padding: 5px 15px; font-size: 0.8rem; margin-right: 10px;">🔓 Decrypt Tool</a>
+        <a href="{% url 'logout' %}" class="btn-danger" style="border-radius: 20px;">Logout</a>
         </div>
     </div>
     {% endif %}

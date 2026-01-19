@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="glass-card" style="max-width: 700px; margin: 0 auto;">
+    <h2 class="text-center">🔓 Decryption Lab</h2>
+    <p class="text-center" style="color: var(--text-muted); margin-bottom: 20px;">
+        Upload an encrypted file (.bin) to verify it or view its contents.
+    </p>
+
+    <form method="POST" enctype="multipart/form-data">
+    {% csrf_token %}
+    
+    <label>Upload Encrypted File (.bin):</label>
+    <input type="file" name="encrypted_file" required style="margin-bottom: 20px;">
+    
+    <p class="text-center" style="color: var(--text-muted); font-size: 0.9rem;">
+        The system will try to auto-detect the key from the filename (e.g., "ID_5_...").
+    </p>
+
+    <details>
+        <summary style="cursor: pointer; color: var(--primary); margin-bottom: 10px;">
+            (Optional) Manually Select Key Source
+        </summary>
+        <select name="secret_id" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--glass-border);">
+            <option value="" selected>-- Auto Detect --</option>
+            {% for s in user_secrets %}
+                <option value="{{ s.id }}">{{ s.title }} (ID: {{ s.id }})</option>
+            {% endfor %}
+        </select>
+    </details>
+
+    <br>
+    <button type="submit" class="btn btn-primary" style="width: 100%;">Decrypt File</button>
+</form>
+
+    {% if error_message %}
+        <div style="margin-top: 20px; padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); border-radius: 8px; color: #ff8888;">
+            {{ error_message }}
+        </div>
+    {% endif %}
+
+    {% if decrypted_text %}
+        <div style="margin-top: 30px;">
+            <h3 style="color: #4ade80;">✓ Decryption Successful</h3>
+            <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; border: 1px solid #4ade80;">
+                <pre style="white-space: pre-wrap;">{{ decrypted_text }}</pre>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if decrypted_image %}
+        <div style="margin-top: 30px; text-align: center;">
+            <h3 style="color: #4ade80;">✓ Image Restored</h3>
+            <img src="{{ decrypted_image }}" style="max-width: 100%; border-radius: 8px; border: 2px solid #4ade80; margin-top: 10px;">
+        </div>
+    {% endif %}
+    
+    <br>
+    <a href="{% url 'index' %}" class="btn-link">← Back to Dashboard</a>
+</div>
+
+{% endblock %}
