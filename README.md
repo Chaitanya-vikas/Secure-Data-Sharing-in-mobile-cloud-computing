@@ -75,5 +75,5 @@ To run this project locally for development:
 
 **1. Clone the Repository**
 ```bash
-git clone [https://github.com/YOUR_USERNAME/Secure-Data-Sharing-in-mobile-cloud-computing.git](https://github.com/YOUR_USERNAME/Secure-Data-Sharing-in-mobile-cloud-computing.git)
+git clone [https://github.com/YOUR_USERNAME/Secure-Data-Sharing-in-mobile-cloud-computing.git](https://github.com/Chaitanya-vikas/Secure-Data-Sharing-in-mobile-cloud-computing.git)
 cd Secure-Data-Sharing-in-mobile-cloud-computing
