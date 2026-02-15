@@ -6,3 +6,4 @@ mysqlclient
 cryptography
 django-otp
 qrcode
+Pillow
