@@ -63,7 +63,7 @@ The application follows a standard **MVT (Model-View-Template)** architecture, e
 
 | **Encrypted File Upload** | **Mobile View** |
 | :---: | :---: |
-| ![Upload](path/to/upload_screenshot.png) | ![Mobile](mobileview.jpg) |
+| ![Upload](upload.jpg) | ![Mobile](mobileview.jpg) |
 
 *(Note to Recruiter: Replace the paths above with actual image links from your repository)*
 
