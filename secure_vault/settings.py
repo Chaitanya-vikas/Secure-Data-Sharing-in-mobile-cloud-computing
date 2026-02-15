@@ -89,10 +89,11 @@ WSGI_APPLICATION = 'secure_vault.wsgi.application'
 # secure_vault/settings.py
 
 # Database Configuration
+# 1. Get the URL from the environment
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 if DATABASE_URL:
-    # --- PRODUCTION (Render + TiDB) ---
+    # --- PRODUCTION (Render) ---
     DATABASES = {
         'default': dj_database_url.parse(
             DATABASE_URL,
@@ -100,11 +101,10 @@ if DATABASE_URL:
             conn_health_checks=True,
         )
     }
-    # TiDB requires a secure connection
+    # FORCE SSL: Point to Render's system certificate to satisfy TiDB
     DATABASES['default']['OPTIONS'] = {
         'ssl': {
-            'check_hostname': False,
-            'verify_cert': False,
+            'ca': '/etc/ssl/certs/ca-certificates.crt'
         }
     }
 else:
