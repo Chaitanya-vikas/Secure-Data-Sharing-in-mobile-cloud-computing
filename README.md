@@ -59,11 +59,11 @@ The application follows a standard **MVT (Model-View-Template)** architecture, e
 
 | **Login & 2FA** | **Secure Dashboard** |
 | :---: | :---: |
-| ![Login Screen](login.jpg) | ![Dashboard](login.jpg) |
+| ![Login Screen](login.jpg) | ![Dashboard](Dashboard.jpg) |
 
 | **Encrypted File Upload** | **Mobile View** |
 | :---: | :---: |
-| ![Upload](path/to/upload_screenshot.png) | ![Mobile](signup .jpg) |
+| ![Upload](path/to/upload_screenshot.png) | ![Mobile]() |
 
 *(Note to Recruiter: Replace the paths above with actual image links from your repository)*
 
