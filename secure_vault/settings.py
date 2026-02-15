@@ -9,7 +9,8 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
-
+import dj_database_url
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -49,6 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -86,29 +88,31 @@ WSGI_APPLICATION = 'secure_vault.wsgi.application'
 
 # secure_vault/settings.py
 
-import os
+# Database Configuration
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Check if we are running on PythonAnywhere (Live Server)
-if 'PYTHONANYWHERE_DOMAIN' in os.environ:
+if DATABASE_URL:
+    # --- PRODUCTION (Render + TiDB) ---
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'YOUR_PYTHONANYWHERE_USERNAME$vault_live',  # We will create this name later
-            'USER': 'YOUR_PYTHONANYWHERE_USERNAME',
-            'PASSWORD': 'YOUR_DB_PASSWORD',     # You will set this later
-            'HOST': 'YOUR_PYTHONANYWHERE_USERNAME.mysql.pythonanywhere-services.com',
+        'default': dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+    # TiDB requires a secure connection
+    DATABASES['default']['OPTIONS'] = {
+        'ssl': {
+            'check_hostname': False,
+            'verify_cert': False,
         }
     }
 else:
-    # Localhost (Your Laptop) settings
+    # --- LOCAL (Laptop) ---
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.mysql',
-            'NAME': 'vault_db',
-            'USER': 'root',
-            'PASSWORD': 'YOUR_LOCAL_PASSWORD', # Keep your local password here
-            'HOST': 'localhost',
-            'PORT': '3306',
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
@@ -146,5 +150,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
