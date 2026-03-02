@@ -101,7 +101,7 @@ Step 5: Create Admin User
 ```Bash
 python manage.py createsuperuser
 ```
-# Follow prompts to set username and password
+#Follow prompts to set username and password
 
 Step 6: Run Server
 ```Bash
