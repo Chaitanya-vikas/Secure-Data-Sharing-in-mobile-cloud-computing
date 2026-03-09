@@ -1,58 +1,205 @@
-{% extends 'base.html' %}
-
-{% block content %}
-
-<div class="glass-card">
-    <h2 class="text-center">Store New Secret</h2>
-    <form method="POST" enctype="multipart/form-data">
-        {% csrf_token %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Vault | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --bg-dark: #070B14; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.08); --accent-blue: #3B82F6; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; overflow-x: hidden; }
         
-        <input type="text" name="title" placeholder="Title (e.g., Bank Password)" required>
-        
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <textarea name="secret_text" placeholder="Option 1: Type your secret text..." rows="3"></textarea>
+        /* Ambient Background Orbs */
+        .ambient-orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: -1; animation: floatOrb 15s infinite alternate; }
+        .orb-1 { width: 500px; height: 500px; background: rgba(59, 130, 246, 0.12); top: -150px; left: -100px; }
+        .orb-2 { width: 600px; height: 600px; background: rgba(59, 130, 246, 0.08); bottom: -200px; right: -150px; animation-delay: -5s; }
+
+        /* Glass Navbar */
+        nav { 
+            position: fixed; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 5%; box-sizing: border-box; background: rgba(7, 11, 20, 0.7); backdrop-filter: blur(16px); 
+            border-bottom: 1px solid var(--glass-border); z-index: 100;
+        }
+        .logo { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .logo span { color: var(--accent-blue); }
+        .nav-links { display: flex; gap: 15px; align-items: center; font-size: 0.95rem; }
+
+        /* Visible User Badge */
+        .user-badge {
+            display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);
+            padding: 6px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600;
+            border: 1px solid rgba(59, 130, 246, 0.2); margin-right: 15px;
+        }
+
+        /* Main Container */
+        .container { max-width: 900px; margin: 120px auto 50px; padding: 0 20px; animation: slideUp 0.6s ease-out; }
+
+        /* Glass Cards */
+        .glass-card { 
+            background: var(--glass-bg); backdrop-filter: blur(24px); border: 1px solid var(--glass-border); 
+            border-radius: 20px; padding: 40px; margin-bottom: 30px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); 
+        }
+        .glass-card h3 { font-family: 'Outfit', sans-serif; font-size: 1.6rem; margin-top: 0; margin-bottom: 25px; border-bottom: 1px solid var(--glass-border); padding-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+
+        /* Form Elements */
+        label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; font-weight: 500; }
+        input[type="text"], textarea, input[type="file"] { 
+            width: 100%; padding: 14px; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); 
+            color: var(--text-main); border-radius: 10px; box-sizing: border-box; font-family: 'Inter', sans-serif; 
+            transition: all 0.3s ease; margin-bottom: 20px;
+        }
+        input:focus, textarea:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        input[type="file"] { padding: 10px; color: var(--text-muted); }
+        input[type="file"]::file-selector-button { background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--glass-border); padding: 8px 16px; border-radius: 6px; margin-right: 15px; cursor: pointer; transition: all 0.2s; }
+        input[type="file"]::file-selector-button:hover { background: rgba(59, 130, 246, 0.2); border-color: var(--accent-blue); }
+
+        /* Upload Grid Layout */
+        .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; cursor: pointer; transition: all 0.3s ease; border: none; font-size: 0.95rem; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-primary { background: var(--accent-blue); color: #fff; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); width: 100%; justify-content: center; padding: 14px; font-size: 1.05rem; margin-top: 10px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5); }
+        .btn-outline { background: transparent; border: 1px solid var(--glass-border); color: var(--text-main); }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); border-color: var(--text-muted); }
+        .btn-action { background: rgba(59, 130, 246, 0.1); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.2); padding: 8px 14px; font-size: 0.85rem; }
+        .btn-action:hover { background: var(--accent-blue); color: #fff; }
+        .btn-danger { background: transparent; color: var(--danger-red); border: 1px solid var(--danger-red); padding: 8px 14px; }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.15); }
+
+        /* Vault List Items */
+        .vault-list { display: flex; flex-direction: column; gap: 15px; }
+        .vault-item { 
+            display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; 
+            background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); border-radius: 12px; 
+            transition: all 0.3s ease; 
+        }
+        .vault-item:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(59, 130, 246, 0.3); transform: translateX(5px); }
+        .item-info { display: flex; flex-direction: column; gap: 4px; }
+        .item-title { font-weight: 600; font-size: 1.1rem; }
+        .item-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 10px; }
+        .item-actions { display: flex; gap: 10px; align-items: center; }
+
+        .empty-state { text-align: center; padding: 40px; color: var(--text-muted); font-style: italic; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatOrb { from { transform: translate(0, 0); } to { transform: translate(30px, 30px); } }
+
+        /* --- MOBILE RESPONSIVENESS & TOUCH FEEDBACK --- */
+        .btn:active, .btn-action:active, .btn-danger:active {
+            transform: translateY(0) scale(0.95) !important;
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.2) !important;
+        }
+        .vault-item:active {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(59, 130, 246, 0.3);
+            transform: scale(0.98);
+        }
+
+        @media (max-width: 768px) {
+            nav { flex-direction: column; padding: 15px; gap: 12px; }
+            .nav-links { width: 100%; justify-content: center; gap: 10px; flex-wrap: wrap; }
             
-            <div style="border: 1px dashed var(--glass-border); padding: 20px; text-align: center; border-radius: 8px;">
-                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">Option 2: Upload Image</p>
-                <input type="file" name="secret_file" accept="image/*" style="background: transparent; border: none;">
-            </div>
+            .user-badge {
+                display: block; width: 100%; text-align: center; margin-right: 0;
+                background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);
+                padding: 8px 0; border-radius: 8px; margin-bottom: 5px; font-weight: 600;
+            }
+            
+            .container { margin-top: 170px; padding: 0 15px; }
+            .glass-card { padding: 25px 20px; }
+            .upload-grid { grid-template-columns: 1fr; gap: 20px; }
+
+            .vault-item { flex-direction: column; align-items: flex-start; gap: 15px; }
+            .item-actions { width: 100%; justify-content: space-between; gap: 8px; }
+            .item-actions .btn { flex: 1; justify-content: center; padding: 10px 5px; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+
+    <nav>
+        <div class="logo">SecureVault<span>.</span></div>
+        <div class="nav-links">
+            <div class="user-badge">👤 Node: {{ request.user.username }}</div>
+            <a href="{% url 'decrypt_tool' %}" class="btn btn-outline">🧰 Decrypt Tool</a>
+            <a href="{% url 'logout' %}" class="btn btn-danger" style="border: none;">Log Out</a>
         </div>
+    </nav>
 
-        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Encrypt & Save to Database</button>
-    </form>
-</div>
-
-<div class="glass-card">
-    <h3>📂 Your Encrypted Vault</h3>
-    {% if all_data %}
-        <div style="background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
-            {% for item in all_data %}
-            <div class="secret-item">
-                <div>
-                    <strong>{{ item.title }}</strong>
-                    <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">{{ item.created_at|default:"Stored Securely" }}</span>
-                </div>
+    <div class="container">
+        
+        <div class="glass-card">
+            <h3>🔒 Encrypt & Store New Secret</h3>
+            
+            <form method="POST" action="{% url 'dashboard' %}" enctype="multipart/form-data">
+                {% csrf_token %}
                 
-                <div class="actions">
-                    <a href="{% url 'download_file' item.id %}" title="Download Decrypted">
-                        📄
-                    </a>
+                <label>Secret Title (e.g., Bank Password, Server Keys)</label>
+                <input type="text" name="title" required placeholder="Enter a descriptive title...">
 
-                    <a href="{% url 'download_encrypted' item.id %}" title="Download Encrypted Raw">
-                        🔒
-                    </a>
-
-                    <form action="{% url 'delete_file' item.id %}" method="POST" style="display:inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn-danger" onclick="return confirm('Delete this secret permanently?');">X</button>
-                    </form>
+                <div class="upload-grid">
+                    <div>
+                        <label>Option 1: Encrypt Text</label>
+                        <textarea name="secret_text" rows="4" placeholder="Type your highly sensitive text here..."></textarea>
+                    </div>
+                    <div>
+                        <label>Option 2: Encrypt File / Image</label>
+                        <div style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 10px; border: 1px dashed var(--glass-border); height: 85px; display: flex; align-items: center;">
+                            <input type="file" name="secret_file" style="margin-bottom: 0; border: none; background: transparent; padding: 0;">
+                        </div>
+                    </div>
                 </div>
-            </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p class="text-center" style="color: var(--text-muted); padding: 20px;">Vault is empty.</p>
-    {% endif %}
-</div>
 
-{% endblock %}
+                <button type="submit" class="btn btn-primary">Encrypt & Save to Database</button>
+            </form>
+        </div>
+
+        <div class="glass-card">
+            <h3>📁 Your Encrypted Vault</h3>
+            
+            <div class="vault-list">
+                {% for data in all_data %}
+                <div class="vault-item">
+                    
+                    <div class="item-info">
+                        <div class="item-title">{{ data.title }}</div>
+                        <div class="item-meta">
+                            <span>ID: #{{ data.id }}</span>
+                            <span>•</span>
+                            <span>Type: {{ data.file_extension }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="item-actions">
+                        <a href="{% url 'download_file' data.id %}" class="btn btn-action" title="Download Decrypted File">
+                            🔓 Decrypt
+                        </a>
+                        <a href="{% url 'download_encrypted' data.id %}" class="btn btn-action" style="background: transparent; border-color: var(--glass-border); color: var(--text-muted);" title="Download Raw Encrypted Bin">
+                            📦 Raw Bin
+                        </a>
+                        
+                        <form method="POST" action="{% url 'delete_file' data.id %}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to permanently delete this encrypted file?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger" title="Permanently Delete">✖</button>
+                        </form>
+                    </div>
+
+                </div>
+                {% empty %}
+                <div class="empty-state">
+                    Your vault is currently empty. Secure your first secret above.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

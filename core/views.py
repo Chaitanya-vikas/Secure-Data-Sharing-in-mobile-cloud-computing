@@ -4,6 +4,7 @@ import base64
 import qrcode
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
+from cryptography.fernet import InvalidToken
 
 # --- AUTH & SECURITY IMPORTS ---
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -14,6 +15,9 @@ from django_otp import login as otp_login
 
 # --- APP IMPORTS ---
 from .models import UserData
+
+def landing_page(request):
+    return render(request, 'landing.html')
 
 # ==========================================
 # 1. SECURITY HELPER
@@ -90,7 +94,7 @@ def setup_2fa(request):
         if device and device.verify_token(token):
             device.confirmed = True
             device.save()
-            return redirect('index')
+            return redirect('dashboard')
         else:
             return render(request, 'setup_2fa.html', {'error': 'Invalid Code', 'device': device})
 
@@ -124,7 +128,7 @@ def verify_2fa(request):
         
         if device and device.verify_token(token):
             otp_login(request, device)
-            return redirect('index')
+            return redirect('dashboard')
         else:
             return render(request, 'verify_2fa.html', {'error': 'Invalid 2FA Code'})
             
@@ -160,7 +164,7 @@ def index(request):
             # IT IS TEXT
             new_entry.save_secret(secret_text, '.txt')
             
-        return redirect('index')
+        return redirect('dashboard')
 
     # Filter data: Show ONLY the logged-in user's secrets
     all_data = UserData.objects.filter(user=request.user)
@@ -192,7 +196,7 @@ def delete_file(request, file_id):
         # Security Check: Ensure user owns the file before deleting
         entry = get_object_or_404(UserData, pk=file_id, user=request.user)
         entry.delete()
-    return redirect('index')
+    return redirect('dashboard')
 
 # Add this to the bottom of core/views.py
 
@@ -213,13 +217,14 @@ def download_encrypted_file(request, file_id):
     # Add this to the bottom of core/views.py
 from cryptography.fernet import InvalidToken # Import for error handling
 
-# Replace your existing decrypt_tool function in core/views.py
 
 # In core/views.py
 
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def decrypt_tool(request):
-    user_secrets = UserData.objects.filter(user=request.user)
+    # This keeps the dropdown showing only THEIR files for manual override
+    user_secrets = UserData.objects.filter(user=request.user) 
+    
     decrypted_text = None
     decrypted_image = None
     error_message = None
@@ -230,7 +235,7 @@ def decrypt_tool(request):
         
         if uploaded_file:
             try:
-                # 1. Auto-detect ID from filename if not selected
+                # 1. Auto-detect ID from the shared filename
                 if not secret_id:
                     import re
                     match = re.search(r'ID_(\d+)_', uploaded_file.name)
@@ -240,20 +245,24 @@ def decrypt_tool(request):
                 if not secret_id:
                     raise Exception("Could not detect Secret ID from filename. Please select the Key manually.")
 
-                # 2. Get the Key Object
-                entry = get_object_or_404(UserData, pk=secret_id, user=request.user)
+                # 2. THE FIX: Fetch the key globally, not just for the logged-in user.
+                # By removing `user=request.user`, we allow cross-account decryption 
+                # AS LONG AS they possess the physical encrypted .bin file.
+                entry = get_object_or_404(UserData, pk=secret_id)
                 
                 # 3. Read uploaded bytes and Swap
                 file_bytes = uploaded_file.read()
+                
+                # We do NOT save this to the database. We just use the model's 
+                # method in memory to decrypt the uploaded file.
                 entry.encrypted_content = file_bytes 
                 
-                # 4. Decrypt
+                # 4. Decrypt using the sender's stored key
                 raw_result = entry.get_secret()
                 
-                # 5. Handle Image vs Text (WITH FIX)
+                # 5. Handle Image vs Text
                 if entry.file_extension in ['.jpg', '.jpeg', '.png']:
                     import base64
-                    # If raw_result is already a string (rare but possible), encode it back to bytes first
                     if isinstance(raw_result, str):
                         raw_result = raw_result.encode('utf-8')
                         
@@ -261,12 +270,9 @@ def decrypt_tool(request):
                     mime_type = 'image/jpeg' if 'jpg' in entry.file_extension else 'image/png'
                     decrypted_image = f"data:{mime_type};base64,{b64_img}"
                 else:
-                    # --- THE FIX IS HERE ---
                     if isinstance(raw_result, bytes):
-                        # If it's bytes, we decode it to string
                         decrypted_text = raw_result.decode('utf-8')
                     else:
-                        # If it's already a string, we just use it
                         decrypted_text = raw_result
 
             except InvalidToken:

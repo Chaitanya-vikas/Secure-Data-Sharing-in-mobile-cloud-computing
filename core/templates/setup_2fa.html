@@ -1,36 +1,126 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="glass-card text-center" style="max-width: 500px; margin: 0 auto;">
-    <h2>🔐 Setup 2FA</h2>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup 2FA | SecureVault</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
-    {% if qr_code %}
-        <p style="color: var(--text-muted); margin-bottom: 20px;">Scan this with Google Authenticator</p>
-        <div style="background: white; padding: 10px; display: inline-block; border-radius: 8px;">
-            <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
-        </div>
-        
-        <form method="POST" style="margin-top: 20px;">
-            {% csrf_token %}
-            <input type="text" name="token" placeholder="Enter 6-digit code" style="text-align: center; font-size: 1.2rem; letter-spacing: 5px; width: 200px;" required>
-            <br>
-            <button type="submit" class="btn btn-primary">Verify & Activate</button>
-        </form>
+    <style>
 
-    {% elif already_setup %}
-        <h3 style="color: #4ade80;">✓ 2FA Active</h3>
-        <p style="margin-bottom: 20px;">Your account is secured.</p>
-        
-        <form method="POST">
-            {% csrf_token %}
-            <input type="hidden" name="reset" value="true">
-            <button type="submit" class="btn-danger">⚠ Reset 2FA Keys</button>
-        </form>
-        <br>
-        <a href="{% url 'index' %}" class="btn btn-primary">Go to Dashboard</a>
-    {% endif %}
+        .global-back { 
+            position: absolute; 
+            top: 30px; 
+            left: 30px; 
+            color: var(--text-muted); 
+            text-decoration: none; 
+            font-weight: 500; 
+            transition: all 0.3s ease; 
+            z-index: 100; font-size: 1.05rem; }
 
-    {% if error %}
-        <p style="color: var(--danger); margin-top: 10px;">{{ error }}</p>
-    {% endif %}
-</div>
-{% endblock %}
+        .global-back:hover { 
+            color: var(--accent-blue); 
+            transform: translateX(-5px); }
+
+        @media (max-width: 600px) { 
+            .global-back { 
+                top: 15px; 
+                left: 15px; 
+                font-size: 0.95rem; } }
+
+        :root { --bg-dark: #070B14; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.08); --accent-blue: #3B82F6; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; padding: 20px; box-sizing: border-box; }
+        
+        /* Ambient Orbs */
+        .ambient-orb { position: absolute; border-radius: 50%; filter: blur(100px); z-index: -1; animation: floatOrb 10s infinite alternate; }
+        .orb-1 { width: 500px; height: 500px; background: rgba(59, 130, 246, 0.15); top: -150px; left: -150px; }
+        .orb-2 { width: 400px; height: 400px; background: rgba(59, 130, 246, 0.1); bottom: -100px; right: -100px; animation-delay: -5s; }
+
+        /* The Glass Card */
+        .auth-card { 
+            background: var(--glass-bg); backdrop-filter: blur(24px); border: 1px solid var(--glass-border); 
+            padding: 50px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
+            width: 100%; max-width: 450px; text-align: center; animation: slideUp 0.6s ease-out; 
+        }
+
+        .auth-card h2 { font-family: 'Outfit', sans-serif; font-size: 2rem; margin-top: 0; margin-bottom: 10px; }
+        .auth-card p { color: var(--text-muted); margin-bottom: 30px; line-height: 1.5; }
+
+        /* QR Code Container */
+        .qr-container { 
+            background: #ffffff; padding: 15px; border-radius: 16px; display: inline-block; 
+            margin-bottom: 30px; box-shadow: 0 0 30px rgba(59, 130, 246, 0.3); 
+        }
+        .qr-container img { display: block; max-width: 200px; height: auto; }
+
+        /* Form Elements */
+        input[type="text"] { 
+            width: 100%; padding: 15px; font-size: 1.5rem; letter-spacing: 8px; text-align: center;
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); color: var(--text-main); 
+            border-radius: 12px; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: all 0.3s ease; 
+        }
+        input:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+
+        .btn-primary { 
+            width: 100%; padding: 16px; margin-top: 20px; background: var(--accent-blue); color: #fff; 
+            border: none; border-radius: 12px; font-weight: 600; font-size: 1.1rem; cursor: pointer; 
+            transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); 
+        }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(59, 130, 246, 0.5); }
+        
+        .btn-danger { 
+            background: rgba(239, 68, 68, 0.1); color: var(--danger-red); border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 12px; width: 100%; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        }
+        .btn-danger:hover { background: var(--danger-red); color: #fff; }
+
+        .success-text { color: #10B981; font-family: 'Outfit', sans-serif; font-size: 1.8rem; margin-bottom: 5px; }
+        .error-text { color: var(--danger-red); margin-top: 15px; font-size: 0.9rem; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatOrb { from { transform: translate(0, 0); } to { transform: translate(30px, 30px); } }
+    </style>
+</head>
+<body>
+    <a href="javascript:history.back()" class="global-back">← Back</a>
+
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+
+    <div class="auth-card">
+        
+        {% if qr_code %}
+            <h2>🔐 Secure Your Node</h2>
+            <p>Scan this QR code with Google Authenticator or Authy to link your device.</p>
+            
+            <div class="qr-container">
+                <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code">
+            </div>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <input type="text" name="token" placeholder="000000" maxlength="6" required>
+                <button type="submit" class="btn-primary">Verify & Activate 2FA</button>
+            </form>
+
+        {% elif already_setup %}
+            <div class="success-text">✓ 2FA Active</div>
+            <p>Your account is fully secured with multi-factor authentication.</p>
+            
+            <a href="{% url 'dashboard' %}" class="btn-primary" style="display: block; text-decoration: none; margin-bottom: 20px; box-sizing: border-box;">Enter Dashboard</a>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="reset" value="true">
+                <button type="submit" class="btn-danger">⚠ Reset 2FA Keys</button>
+            </form>
+        {% endif %}
+
+        {% if error %}
+            <div class="error-text">{{ error }}</div>
+        {% endif %}
+    </div>
+
+</body>
+</html>

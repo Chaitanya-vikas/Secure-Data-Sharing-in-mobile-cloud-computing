@@ -1,17 +1,90 @@
-{% extends 'base.html' %}
-{% block content %}
-<div class="glass-card text-center" style="max-width: 400px; margin: 50px auto;">
-    <h2>Authentication Required</h2>
-    <p style="color: var(--text-muted);">Please enter the code from your app.</p>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify 2FA | SecureVault</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root { --bg-dark: #070B14; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.08); --accent-blue: #3B82F6; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; padding: 20px; box-sizing: border-box; }
+        
+        /* THE BACK BUTTON */
+        .global-back { position: absolute; top: 30px; left: 30px; color: var(--text-muted); text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease; z-index: 100; font-size: 1.05rem; }
+        .global-back:hover { color: var(--accent-blue); transform: translateX(-5px); }
 
-    <form method="POST" style="margin-top: 20px;">
-        {% csrf_token %}
-        <input type="text" name="token" placeholder="000 000" style="text-align: center; font-size: 1.5rem; letter-spacing: 5px;" required>
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Unlock Vault</button>
-    </form>
+        .ambient-orb { position: absolute; border-radius: 50%; filter: blur(100px); z-index: -1; animation: floatOrb 10s infinite alternate; }
+        .orb-1 { width: 500px; height: 500px; background: rgba(59, 130, 246, 0.15); top: -150px; left: -150px; }
+        .orb-2 { width: 400px; height: 400px; background: rgba(59, 130, 246, 0.1); bottom: -100px; right: -100px; animation-delay: -5s; }
 
-    {% if error %}
-        <p style="color: var(--danger); margin-top: 10px;">{{ error }}</p>
-    {% endif %}
-</div>
-{% endblock %}
+        .auth-card { 
+            background: var(--glass-bg); backdrop-filter: blur(24px); border: 1px solid var(--glass-border); 
+            padding: 50px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
+            width: 100%; max-width: 450px; text-align: center; animation: slideUp 0.6s ease-out; position: relative;
+        }
+
+        /* NEW USER BADGE TO FILL SPACE */
+        .user-badge {
+            display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);
+            padding: 6px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 20px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .auth-card h2 { font-family: 'Outfit', sans-serif; font-size: 2.2rem; margin-top: 0; margin-bottom: 10px; }
+        .auth-card p { color: var(--text-muted); margin-bottom: 30px; font-size: 1.05rem; }
+
+        input[type="text"] { 
+            width: 100%; padding: 15px; font-size: 1.8rem; letter-spacing: 12px; text-align: center; 
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); color: var(--text-main); 
+            border-radius: 12px; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: all 0.3s ease; 
+        }
+        input:focus { border-color: var(--accent-blue); outline: none; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); }
+
+        .btn-primary { 
+            width: 100%; padding: 16px; margin-top: 25px; background: var(--accent-blue); color: #fff; 
+            border: none; border-radius: 12px; font-weight: 600; font-size: 1.1rem; cursor: pointer; 
+            transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); 
+        }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(59, 130, 246, 0.5); }
+        .btn-primary:active { transform: translateY(0); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+
+        .error-text { color: var(--danger-red); margin-top: 15px; font-size: 0.95rem; font-weight: 500; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatOrb { from { transform: translate(0, 0); } to { transform: translate(30px, 30px); } }
+
+        @media (max-width: 600px) {
+            .global-back { top: 15px; left: 15px; font-size: 0.95rem; }
+            .auth-card { padding: 40px 25px; }
+            input[type="text"] { font-size: 1.5rem; letter-spacing: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <a href="{% url 'logout' %}" class="global-back">← Back to Login</a>
+
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+
+    <div class="auth-card">
+        <div class="user-badge">👤 Node: {{ request.user.username }}</div>
+        
+        <h2>Unlock Node</h2>
+        <p>Enter the 6-digit verification code from your authenticator app.</p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <input type="text" name="token" placeholder="000000" maxlength="6" required autocomplete="off">
+            <button type="submit" class="btn-primary">Unlock Vault</button>
+        </form>
+
+        {% if error %}
+            <div class="error-text">❌ {{ error }}</div>
+        {% endif %}
+    </div>
+
+</body>
+</html>

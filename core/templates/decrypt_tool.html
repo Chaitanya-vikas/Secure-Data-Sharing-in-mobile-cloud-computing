@@ -1,62 +1,133 @@
-{% extends 'base.html' %}
-{% block content %}
-
-<div class="glass-card" style="max-width: 700px; margin: 0 auto;">
-    <h2 class="text-center">🔓 Decryption Lab</h2>
-    <p class="text-center" style="color: var(--text-muted); margin-bottom: 20px;">
-        Upload an encrypted file (.bin) to verify it or view its contents.
-    </p>
-
-    <form method="POST" enctype="multipart/form-data">
-    {% csrf_token %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decrypt Tool | SecureVault</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
-    <label>Upload Encrypted File (.bin):</label>
-    <input type="file" name="encrypted_file" required style="margin-bottom: 20px;">
-    
-    <p class="text-center" style="color: var(--text-muted); font-size: 0.9rem;">
-        The system will try to auto-detect the key from the filename (e.g., "ID_5_...").
-    </p>
+    <style>
+        :root { --bg-dark: #070B14; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.08); --accent-blue: #3B82F6; --success-green: #10B981; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; overflow-x: hidden; }
+        
+        .ambient-orb { position: fixed; border-radius: 50%; filter: blur(120px); z-index: -1; animation: floatOrb 15s infinite alternate; }
+        .orb-1 { width: 500px; height: 500px; background: rgba(59, 130, 246, 0.12); top: -150px; left: -100px; }
+        .orb-2 { width: 600px; height: 600px; background: rgba(59, 130, 246, 0.08); bottom: -200px; right: -150px; animation-delay: -5s; }
 
-    <details>
-        <summary style="cursor: pointer; color: var(--primary); margin-bottom: 10px;">
-            (Optional) Manually Select Key Source
-        </summary>
-        <select name="secret_id" style="width: 100%; padding: 12px; border-radius: 8px; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--glass-border);">
-            <option value="" selected>-- Auto Detect --</option>
-            {% for s in user_secrets %}
-                <option value="{{ s.id }}">{{ s.title }} (ID: {{ s.id }})</option>
-            {% endfor %}
-        </select>
-    </details>
+        /* Navbar (Matches Dashboard) */
+        nav { position: fixed; top: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 15px 5%; box-sizing: border-box; background: rgba(7, 11, 20, 0.7); backdrop-filter: blur(16px); border-bottom: 1px solid var(--glass-border); z-index: 100; }
+        .logo { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--text-main); }
+        .logo span { color: var(--accent-blue); }
+        .nav-links { display: flex; gap: 15px; align-items: center; font-size: 0.95rem; }
+        .btn-outline { background: transparent; border: 1px solid var(--glass-border); color: var(--text-main); padding: 8px 16px; border-radius: 8px; text-decoration: none; transition: all 0.3s; }
+        .btn-outline:hover { background: rgba(255, 255, 255, 0.05); }
 
-    <br>
-    <button type="submit" class="btn btn-primary" style="width: 100%;">Decrypt File</button>
-</form>
+        /* Main Container */
+        .container { max-width: 700px; margin: 120px auto 50px; padding: 0 20px; animation: slideUp 0.6s ease-out; }
 
-    {% if error_message %}
-        <div style="margin-top: 20px; padding: 15px; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); border-radius: 8px; color: #ff8888;">
-            {{ error_message }}
+        .glass-card { background: var(--glass-bg); backdrop-filter: blur(24px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 40px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4); }
+        .glass-card h2 { font-family: 'Outfit', sans-serif; font-size: 2rem; margin-top: 0; margin-bottom: 10px; text-align: center; }
+        .glass-card > p { text-align: center; color: var(--text-muted); margin-bottom: 30px; }
+
+        /* Form Elements */
+        label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.95rem; font-weight: 500; }
+        input[type="file"] { width: 100%; padding: 15px; background: rgba(0, 0, 0, 0.3); border: 1px dashed var(--accent-blue); border-radius: 12px; color: var(--text-muted); margin-bottom: 15px; cursor: pointer; transition: all 0.3s ease; }
+        input[type="file"]:hover { background: rgba(59, 130, 246, 0.05); }
+        input[type="file"]::file-selector-button { background: var(--accent-blue); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; margin-right: 15px; cursor: pointer; font-weight: 600; }
+
+        /* Dropdown Styling */
+        details { background: rgba(0, 0, 0, 0.2); border: 1px solid var(--glass-border); border-radius: 12px; padding: 15px; margin-bottom: 25px; }
+        summary { color: var(--text-main); cursor: pointer; font-weight: 500; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+        summary::-webkit-details-marker { display: none; }
+        summary:after { content: "▼"; font-size: 0.8rem; color: var(--text-muted); }
+        details[open] summary:after { content: "▲"; }
+        select { width: 100%; padding: 12px; margin-top: 15px; background: rgba(0, 0, 0, 0.5); color: var(--text-main); border: 1px solid var(--glass-border); border-radius: 8px; font-family: 'Inter', sans-serif; outline: none; }
+        select:focus { border-color: var(--accent-blue); }
+
+        .btn-primary { width: 100%; padding: 16px; background: var(--accent-blue); color: #fff; border: none; border-radius: 12px; font-weight: 600; font-size: 1.1rem; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3); }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 12px 25px rgba(59, 130, 246, 0.5); }
+
+        /* Success / Error Boxes */
+        .error-box { margin-top: 25px; padding: 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px; color: #fca5a5; font-weight: 500; text-align: center; }
+        
+        .success-section { margin-top: 35px; animation: slideUp 0.5s ease-out; }
+        .success-title { color: var(--success-green); font-family: 'Outfit', sans-serif; font-size: 1.4rem; display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+        
+        .decrypted-text-box { background: rgba(0, 0, 0, 0.4); padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 0 20px rgba(16, 185, 129, 0.1); }
+        .decrypted-text-box pre { margin: 0; white-space: pre-wrap; font-family: monospace; font-size: 0.95rem; color: #e2e8f0; line-height: 1.5; }
+        
+        .decrypted-image-box { text-align: center; }
+        .decrypted-image-box img { max-width: 100%; border-radius: 12px; border: 2px solid rgba(16, 185, 129, 0.4); box-shadow: 0 0 30px rgba(16, 185, 129, 0.15); }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatOrb { from { transform: translate(0, 0); } to { transform: translate(30px, 30px); } }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+
+    <nav>
+        <a href="{% url 'dashboard' %}" class="logo">SecureVault<span>.</span></a>
+        <div class="nav-links">
+            <a href="{% url 'dashboard' %}" class="btn-outline">← Back to Dashboard</a>
         </div>
-    {% endif %}
+    </nav>
 
-    {% if decrypted_text %}
-        <div style="margin-top: 30px;">
-            <h3 style="color: #4ade80;">✓ Decryption Successful</h3>
-            <div style="background: rgba(0,0,0,0.4); padding: 15px; border-radius: 8px; border: 1px solid #4ade80;">
-                <pre style="white-space: pre-wrap;">{{ decrypted_text }}</pre>
-            </div>
+    <div class="container">
+        <div class="glass-card">
+            <h2>🔓 Decryption Lab</h2>
+            <p>Upload a raw encrypted binary file (.bin) to extract its contents.</p>
+
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <label>Upload Encrypted File</label>
+                <input type="file" name="encrypted_file" required>
+                
+                <p style="font-size: 0.85rem; color: var(--text-muted); text-align: center; margin-bottom: 20px;">
+                    The system auto-detects the key if the filename format is unmodified (e.g., "ID_5_...").
+                </p>
+
+                <details>
+                    <summary>Manual Key Override (Optional)</summary>
+                    <select name="secret_id">
+                        <option value="" selected>-- Auto Detect Key from Filename --</option>
+                        {% for s in user_secrets %}
+                            <option value="{{ s.id }}">{{ s.title }} (ID: {{ s.id }})</option>
+                        {% endfor %}
+                    </select>
+                </details>
+
+                <button type="submit" class="btn-primary">Execute Decryption</button>
+            </form>
+
+            {% if error_message %}
+                <div class="error-box">
+                    {{ error_message }}
+                </div>
+            {% endif %}
+
+            {% if decrypted_text %}
+                <div class="success-section">
+                    <div class="success-title">✓ Payload Successfully Decrypted</div>
+                    <div class="decrypted-text-box">
+                        <pre>{{ decrypted_text }}</pre>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if decrypted_image %}
+                <div class="success-section decrypted-image-box">
+                    <div class="success-title" style="justify-content: center;">✓ Image Payload Restored</div>
+                    <img src="{{ decrypted_image }}" alt="Decrypted Secure Image">
+                </div>
+            {% endif %}
+            
         </div>
-    {% endif %}
+    </div>
 
-    {% if decrypted_image %}
-        <div style="margin-top: 30px; text-align: center;">
-            <h3 style="color: #4ade80;">✓ Image Restored</h3>
-            <img src="{{ decrypted_image }}" style="max-width: 100%; border-radius: 8px; border: 2px solid #4ade80; margin-top: 10px;">
-        </div>
-    {% endif %}
-    
-    <br>
-    <a href="{% url 'index' %}" class="btn-link">← Back to Dashboard</a>
-</div>
-
-{% endblock %}
+</body>
+</html>
