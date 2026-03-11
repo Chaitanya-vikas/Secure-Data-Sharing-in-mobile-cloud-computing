@@ -58,52 +58,68 @@ def logout_view(request):
 def setup_2fa(request):
     user = request.user
 
-    # 1. Handle Reset Command
-    if request.method == 'POST' and request.POST.get('reset') == 'true':
-        TOTPDevice.objects.filter(user=user).delete()
-        StaticDevice.objects.filter(user=user).delete()
-        return redirect('setup_2fa')
-        
-    # 2. NEW: Handle Manual Backup Code Generation
-    if request.method == 'POST' and request.POST.get('generate_backups') == 'true':
-        StaticDevice.objects.filter(user=user).delete() 
-        static_device = StaticDevice.objects.create(user=user, name="Backup Codes")
-        backup_codes = []
-        for _ in range(5):
-            token_obj = static_device.token_set.create()
-            backup_codes.append(token_obj.token)
-        return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
-
-    # 3. Handle 6-Digit Token Submission
-    if request.method == 'POST' and request.POST.get('token'):
-        token = request.POST.get('token')
-        device = TOTPDevice.objects.filter(user=user, confirmed=False).first()
-        
-        if device and device.verify_token(token):
-            device.confirmed = True
-            device.save()
-            
-            # Generate backup codes instantly
+    # 1. Check if already fully secured
+    if TOTPDevice.objects.filter(user=user, confirmed=True).exists():
+        if request.method == 'POST' and request.POST.get('reset') == 'true':
+            print(f"--- 🔴 RESETTING ALL KEYS FOR {user.username} ---")
+            TOTPDevice.objects.filter(user=user).delete()
+            StaticDevice.objects.filter(user=user).delete()
+            return redirect('setup_2fa')
+        elif request.method == 'POST' and request.POST.get('generate_backups') == 'true':
             StaticDevice.objects.filter(user=user).delete() 
             static_device = StaticDevice.objects.create(user=user, name="Backup Codes")
             backup_codes = []
             for _ in range(5):
-                token_obj = static_device.token_set.create()
-                backup_codes.append(token_obj.token)
+                t = static_device.token_set.create()
+                backup_codes.append(t.token)
+            return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
+            
+        return render(request, 'setup_2fa.html', {'already_setup': True})
+
+    # 2. GUARANTEE an unconfirmed device exists for the QR code
+    device = TOTPDevice.objects.filter(user=user, confirmed=False).last()
+    if not device:
+        # We keep tolerance=60 to absorb any local computer clock glitches!
+        device = TOTPDevice.objects.create(user=user, name="Default", tolerance=60)
+        print(f"--- 🆕 CREATED NEW SECRET KEY FOR {user.username} ---")
+
+    # 3. Handle Token Verification
+    if request.method == 'POST' and request.POST.get('token'):
+        token = request.POST.get('token').replace(' ', '').strip()
+        print(f"--- 🔐 2FA VERIFICATION ATTEMPT ---")
+        print(f"User Typed Code : {token}")
+        
+        if device.verify_token(token):
+            print("--- ✅ VERIFICATION SUCCESSFUL! ---")
+            device.confirmed = True
+            device.save()
+            
+            # Cleanup leftover keys and generate backups
+            TOTPDevice.objects.filter(user=user, confirmed=False).delete()
+            StaticDevice.objects.filter(user=user).delete() 
+            static_device = StaticDevice.objects.create(user=user, name="Backup Codes")
+            
+            backup_codes = []
+            for _ in range(5):
+                t = static_device.token_set.create()
+                backup_codes.append(t.token)
                 
             return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
         else:
-            return render(request, 'setup_2fa.html', {'error': 'Invalid Code', 'device': device})
+            print("--- ❌ VERIFICATION FAILED (INVALID MATH) ---")
+            # If they fail, we DO NOT throw away the device. We keep the exact same QR code.
+            otp_url = device.config_url
+            img = qrcode.make(otp_url)
+            buffer = io.BytesIO()
+            img.save(buffer)
+            qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+            
+            return render(request, 'setup_2fa.html', {
+                'error': 'Invalid Code. Please try again.', 
+                'qr_code': qr_code_base64
+            })
 
-    # 4. Check if already completely setup
-    devices = TOTPDevice.objects.filter(user=user, confirmed=True)
-    if devices.exists():
-        return render(request, 'setup_2fa.html', {'already_setup': True})
-
-    # 5. Generate fresh QR code if they are just loading the page
-    TOTPDevice.objects.filter(user=user, confirmed=False).delete()
-    device = TOTPDevice.objects.create(user=user, name="Default")
-    
+    # 4. Default GET Behavior: Render the QR code
     otp_url = device.config_url
     img = qrcode.make(otp_url)
     buffer = io.BytesIO()
@@ -118,7 +134,7 @@ def verify_2fa(request):
         return redirect('setup_2fa')
 
     if request.method == 'POST':
-        token = request.POST.get('token')
+        token = request.POST.get('token', '').replace(' ', '').strip()
         user = request.user
         
         device = match_token(user, token)
