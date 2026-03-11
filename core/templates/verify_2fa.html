@@ -8,10 +8,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     
     <style>
-        :root { --bg-dark: #070B14; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.08); --accent-blue: #3B82F6; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
+        :root { --bg-dark: #05080f; --glass-bg: rgba(255, 255, 255, 0.02); --glass-border: rgba(255, 255, 255, 0.05); --accent-blue: #3B82F6; --danger-red: #EF4444; --text-main: #F8FAFC; --text-muted: #94A3B8; }
         body { background-color: var(--bg-dark); color: var(--text-main); font-family: 'Inter', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; padding: 20px; box-sizing: border-box; }
         
-        /* THE BACK BUTTON */
+        body::before { content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px); background-size: 40px 40px; z-index: -2; pointer-events: none; }
+        
         .global-back { position: absolute; top: 30px; left: 30px; color: var(--text-muted); text-decoration: none; font-weight: 500; display: flex; align-items: center; gap: 8px; transition: all 0.3s ease; z-index: 100; font-size: 1.05rem; }
         .global-back:hover { color: var(--accent-blue); transform: translateX(-5px); }
 
@@ -25,7 +26,6 @@
             width: 100%; max-width: 450px; text-align: center; animation: slideUp 0.6s ease-out; position: relative;
         }
 
-        /* NEW USER BADGE TO FILL SPACE */
         .user-badge {
             display: inline-block; background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);
             padding: 6px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 20px;
@@ -36,7 +36,7 @@
         .auth-card p { color: var(--text-muted); margin-bottom: 30px; font-size: 1.05rem; }
 
         input[type="text"] { 
-            width: 100%; padding: 15px; font-size: 1.8rem; letter-spacing: 12px; text-align: center; 
+            width: 100%; padding: 15px; font-size: 1.1rem; letter-spacing: 2px; text-align: center; 
             background: rgba(0, 0, 0, 0.3); border: 1px solid var(--glass-border); color: var(--text-main); 
             border-radius: 12px; box-sizing: border-box; font-family: 'Inter', sans-serif; transition: all 0.3s ease; 
         }
@@ -58,7 +58,7 @@
         @media (max-width: 600px) {
             .global-back { top: 15px; left: 15px; font-size: 0.95rem; }
             .auth-card { padding: 40px 25px; }
-            input[type="text"] { font-size: 1.5rem; letter-spacing: 8px; }
+            input[type="text"] { font-size: 1rem; letter-spacing: 1px; }
         }
     </style>
 </head>
@@ -73,11 +73,11 @@
         <div class="user-badge">👤 Node: {{ request.user.username }}</div>
         
         <h2>Unlock Node</h2>
-        <p>Enter the 6-digit verification code from your authenticator app.</p>
+        <p>Enter your 6-digit Authenticator PIN or a Backup Recovery Code.</p>
 
         <form method="POST">
             {% csrf_token %}
-            <input type="text" name="token" placeholder="000000" maxlength="6" required autocomplete="off">
+            <input type="text" name="token" placeholder="PIN or Recovery Code" required autocomplete="off">
             <button type="submit" class="btn-primary">Unlock Vault</button>
         </form>
 

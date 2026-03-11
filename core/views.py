@@ -2,16 +2,19 @@ import os
 import io
 import base64
 import qrcode
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
-from cryptography.fernet import InvalidToken
 
 # --- AUTH & SECURITY IMPORTS ---
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout
 from django_otp.plugins.otp_totp.models import TOTPDevice
+from django_otp.plugins.otp_static.models import StaticDevice
 from django_otp import login as otp_login
+from django_otp import match_token
+from cryptography.fernet import InvalidToken
 
 # --- APP IMPORTS ---
 from .models import UserData
@@ -19,21 +22,8 @@ from .models import UserData
 def landing_page(request):
     return render(request, 'landing.html')
 
-# ==========================================
-# 1. SECURITY HELPER
-# ==========================================
-
 def is_2fa_verified(user):
-    """
-    Checks if the user is logged in AND has passed the 2FA check.
-    If they are logged in but haven't entered the code yet, this returns False.
-    """
     return user.is_authenticated and user.is_verified()
-
-
-# ==========================================
-# 2. AUTHENTICATION VIEWS (Signup, Login, 2FA)
-# ==========================================
 
 def signup_view(request):
     if request.method == 'POST':
@@ -41,12 +31,10 @@ def signup_view(request):
         if form.is_valid():
             user = form.save()
             login(request, user)
-            # Redirect to 2FA setup immediately after signup
             return redirect('setup_2fa') 
     else:
         form = UserCreationForm()
     return render(request, 'signup.html', {'form': form})
-
 
 def login_view(request):
     if request.method == 'POST':
@@ -54,55 +42,59 @@ def login_view(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            
-            # Check if user has 2FA setup
             if TOTPDevice.objects.filter(user=user, confirmed=True).exists():
-                return redirect('verify_2fa') # Go to Step 2
+                return redirect('verify_2fa')
             else:
-                return redirect('setup_2fa') # Force them to setup 2FA
+                return redirect('setup_2fa')
     else:
         form = AuthenticationForm()
     return render(request, 'login.html', {'form': form})
-
 
 def logout_view(request):
     logout(request)
     return redirect('login')
 
-
 @login_required(login_url='login')
 def setup_2fa(request):
     user = request.user
 
-    # --- NEW: RESET LOGIC ---
+    # 1. Handle Reset Command
     if request.method == 'POST' and request.POST.get('reset') == 'true':
-        # Delete all 2FA devices for this user so they can start over
         TOTPDevice.objects.filter(user=user).delete()
+        StaticDevice.objects.filter(user=user).delete()
         return redirect('setup_2fa')
-    # ------------------------
     
-    # Check if user already has a device (and hasn't asked to reset)
+    # 2. Check if already completely setup
     devices = TOTPDevice.objects.filter(user=user, confirmed=True)
     if devices.exists():
         return render(request, 'setup_2fa.html', {'already_setup': True})
 
+    # 3. Handle verifying the 6-digit code
     if request.method == 'POST':
-        # Verify the code entered by the user
         token = request.POST.get('token')
         device = TOTPDevice.objects.filter(user=user, confirmed=False).first()
         
         if device and device.verify_token(token):
             device.confirmed = True
             device.save()
-            return redirect('dashboard')
+            
+            # --- GENERATE BACKUP CODES ---
+            StaticDevice.objects.filter(user=user).delete() 
+            static_device = StaticDevice.objects.create(user=user, name="Backup Codes")
+            
+            backup_codes = []
+            for _ in range(5):
+                token_obj = static_device.token_set.create()
+                backup_codes.append(token_obj.token)
+                
+            return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
         else:
             return render(request, 'setup_2fa.html', {'error': 'Invalid Code', 'device': device})
 
-    # Generate a new unconfirmed device/secret
+    # 4. Generate fresh QR code if they are just loading the page
     TOTPDevice.objects.filter(user=user, confirmed=False).delete()
     device = TOTPDevice.objects.create(user=user, name="Default")
     
-    # Generate QR Code
     otp_url = device.config_url
     img = qrcode.make(otp_url)
     buffer = io.BytesIO()
@@ -111,12 +103,8 @@ def setup_2fa(request):
 
     return render(request, 'setup_2fa.html', {'qr_code': qr_code_base64})
 
-# core/views.py
-
 @login_required(login_url='login')
 def verify_2fa(request):
-    # FIX: Check if user actually has a 2FA device confirmed.
-    # If not, redirect them to setup immediately.
     if not TOTPDevice.objects.filter(user=request.user, confirmed=True).exists():
         return redirect('setup_2fa')
 
@@ -124,9 +112,9 @@ def verify_2fa(request):
         token = request.POST.get('token')
         user = request.user
         
-        device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+        device = match_token(user, token)
         
-        if device and device.verify_token(token):
+        if device:
             otp_login(request, device)
             return redirect('dashboard')
         else:
@@ -134,51 +122,32 @@ def verify_2fa(request):
             
     return render(request, 'verify_2fa.html')
 
-
-# ==========================================
-# 3. APP FUNCTIONALITY (Secure Vault)
-# ==========================================
-
-# NOTE: We use @user_passes_test instead of @login_required here
-# This ensures they have passed the 2FA check, not just the password check.
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def index(request):
     if request.method == 'POST':
         title = request.POST.get('title')
         secret_text = request.POST.get('secret_text')
-        secret_file = request.FILES.get('secret_file') # Get uploaded file
+        secret_file = request.FILES.get('secret_file')
         
-        # Create object specifically for the logged-in user
         new_entry = UserData(title=title, user=request.user)
         
         if secret_file:
-            # IT IS AN IMAGE/FILE
-            # 1. Get the extension (e.g., .jpg)
             ext = os.path.splitext(secret_file.name)[1]
-            # 2. Read the raw bytes from memory
             file_data = secret_file.read() 
-            # 3. Encrypt and Save
             new_entry.save_secret(file_data, ext)
-            
         elif secret_text:
-            # IT IS TEXT
             new_entry.save_secret(secret_text, '.txt')
             
         return redirect('dashboard')
 
-    # Filter data: Show ONLY the logged-in user's secrets
     all_data = UserData.objects.filter(user=request.user)
     return render(request, 'index.html', {'all_data': all_data})
 
-
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def download_file(request, file_id):
-    # Security Check: Ensure the file belongs to the logged-in user
     entry = get_object_or_404(UserData, pk=file_id, user=request.user)
-    
     decrypted_content = entry.get_secret()
     
-    # Determine Content Type based on extension
     content_type = 'text/plain'
     if entry.file_extension in ['.jpg', '.jpeg']:
         content_type = 'image/jpeg'
@@ -189,18 +158,12 @@ def download_file(request, file_id):
     response['Content-Disposition'] = f'attachment; filename="{entry.title}{entry.file_extension}"'
     return response
 
-
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def delete_file(request, file_id):
     if request.method == 'POST':
-        # Security Check: Ensure user owns the file before deleting
         entry = get_object_or_404(UserData, pk=file_id, user=request.user)
         entry.delete()
     return redirect('dashboard')
-
-# Add this to the bottom of core/views.py
-
-# In core/views.py
 
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def download_encrypted_file(request, file_id):
@@ -208,23 +171,13 @@ def download_encrypted_file(request, file_id):
     raw_data = entry.encrypted_content
     response = HttpResponse(raw_data, content_type='application/octet-stream')
     
-    # NEW: We put the ID in the filename (e.g., "ID_4_BankPass.bin")
     filename = f"ID_{entry.id}_{entry.title}_encrypted.bin"
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    
     return response
-
-    # Add this to the bottom of core/views.py
-from cryptography.fernet import InvalidToken # Import for error handling
-
-
-# In core/views.py
 
 @user_passes_test(is_2fa_verified, login_url='verify_2fa')
 def decrypt_tool(request):
-    # This keeps the dropdown showing only THEIR files for manual override
-    user_secrets = UserData.objects.filter(user=request.user) 
-    
+    user_secrets = UserData.objects.filter(user=request.user)
     decrypted_text = None
     decrypted_image = None
     error_message = None
@@ -235,9 +188,7 @@ def decrypt_tool(request):
         
         if uploaded_file:
             try:
-                # 1. Auto-detect ID from the shared filename
                 if not secret_id:
-                    import re
                     match = re.search(r'ID_(\d+)_', uploaded_file.name)
                     if match:
                         secret_id = match.group(1)
@@ -245,22 +196,13 @@ def decrypt_tool(request):
                 if not secret_id:
                     raise Exception("Could not detect Secret ID from filename. Please select the Key manually.")
 
-                # 2. THE FIX: Fetch the key globally, not just for the logged-in user.
-                # By removing `user=request.user`, we allow cross-account decryption 
-                # AS LONG AS they possess the physical encrypted .bin file.
                 entry = get_object_or_404(UserData, pk=secret_id)
                 
-                # 3. Read uploaded bytes and Swap
                 file_bytes = uploaded_file.read()
-                
-                # We do NOT save this to the database. We just use the model's 
-                # method in memory to decrypt the uploaded file.
                 entry.encrypted_content = file_bytes 
                 
-                # 4. Decrypt using the sender's stored key
                 raw_result = entry.get_secret()
                 
-                # 5. Handle Image vs Text
                 if entry.file_extension in ['.jpg', '.jpeg', '.png']:
                     import base64
                     if isinstance(raw_result, str):
