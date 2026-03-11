@@ -104,8 +104,14 @@
             <div class="success-text">✓ 2FA Active</div>
             <p style="color: var(--text-muted); margin-bottom: 25px;">Your account is fully secured with multi-factor authentication.</p>
             
-            <a href="{% url 'dashboard' %}" class="btn-primary" style="display: block; text-decoration: none; margin-bottom: 20px; box-sizing: border-box;">Enter Dashboard</a>
+            <a href="{% url 'dashboard' %}" class="btn-primary" style="display: block; text-decoration: none; margin-bottom: 15px; box-sizing: border-box;">Enter Dashboard</a>
             
+            <form method="POST" style="margin-bottom: 15px;">
+                {% csrf_token %}
+                <input type="hidden" name="generate_backups" value="true">
+                <button type="submit" class="btn-primary" style="background: transparent; border: 1px solid var(--accent-blue); color: var(--accent-blue); box-shadow: none;">🔑 Generate Recovery Codes</button>
+            </form>
+
             <form method="POST">
                 {% csrf_token %}
                 <input type="hidden" name="reset" value="true">
