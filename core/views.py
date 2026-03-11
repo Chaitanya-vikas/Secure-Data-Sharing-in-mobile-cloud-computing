@@ -6,6 +6,9 @@ import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse
 
+# --- NEW: Import Django's random string generator ---
+from django.utils.crypto import get_random_string
+
 # --- AUTH & SECURITY IMPORTS ---
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
@@ -65,13 +68,16 @@ def setup_2fa(request):
             TOTPDevice.objects.filter(user=user).delete()
             StaticDevice.objects.filter(user=user).delete()
             return redirect('setup_2fa')
+            
         elif request.method == 'POST' and request.POST.get('generate_backups') == 'true':
             StaticDevice.objects.filter(user=user).delete() 
             static_device = StaticDevice.objects.create(user=user, name="Backup Codes")
             backup_codes = []
             for _ in range(5):
-                t = static_device.token_set.create()
-                backup_codes.append(t.token)
+                # FIX: Explicitly generate a 10-character random string!
+                code = get_random_string(length=10, allowed_chars='abcdefghjkmnpqrstuvwxyz23456789')
+                static_device.token_set.create(token=code)
+                backup_codes.append(code)
             return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
             
         return render(request, 'setup_2fa.html', {'already_setup': True})
@@ -101,13 +107,14 @@ def setup_2fa(request):
             
             backup_codes = []
             for _ in range(5):
-                t = static_device.token_set.create()
-                backup_codes.append(t.token)
+                # FIX: Explicitly generate a 10-character random string!
+                code = get_random_string(length=10, allowed_chars='abcdefghjkmnpqrstuvwxyz23456789')
+                static_device.token_set.create(token=code)
+                backup_codes.append(code)
                 
             return render(request, 'setup_2fa.html', {'backup_codes': backup_codes})
         else:
             print("--- ❌ VERIFICATION FAILED (INVALID MATH) ---")
-            # If they fail, we DO NOT throw away the device. We keep the exact same QR code.
             otp_url = device.config_url
             img = qrcode.make(otp_url)
             buffer = io.BytesIO()

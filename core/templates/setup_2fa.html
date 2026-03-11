@@ -87,18 +87,20 @@
             </form>
 
         {% elif backup_codes %}
-            <div class="success-text">✓ Vault Secured</div>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Your authenticator is linked! Please save these single-use recovery codes in a safe place. You can use them to log in if you lose your phone.</p>
+            <div style="color: #10B981; font-family: 'Outfit', sans-serif; font-size: 2rem; margin-bottom: 10px; font-weight: bold;">✓ Vault Secured</div>
+            <p style="color: #94A3B8; margin-bottom: 20px; font-size: 1.05rem;">Your authenticator is linked! Please save these single-use recovery codes in a safe place. You can use them to log in if you lose your phone.</p>
             
-            <div style="background: rgba(0,0,0,0.3); border: 1px dashed var(--accent-blue); border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 25px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-family: 'Inter', monospace; font-size: 1.1rem; color: var(--text-main); font-weight: 600;">
+            <div style="background: rgba(0, 0, 0, 0.4); border: 1px dashed #3B82F6; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     {% for code in backup_codes %}
-                        <div style="background: rgba(59, 130, 246, 0.1); padding: 8px; border-radius: 6px; text-align: center; letter-spacing: 2px;">{{ code }}</div>
+                        <div style="background: #1E293B; color: #FFFFFF; font-family: monospace; font-size: 1.2rem; padding: 12px; border-radius: 8px; text-align: center; letter-spacing: 3px; font-weight: 700; border: 1px solid #475569;">
+                            {{ code }}
+                        </div>
                     {% endfor %}
                 </div>
             </div>
             
-            <a href="{% url 'dashboard' %}" class="btn-primary" style="display: block; text-decoration: none; box-sizing: border-box;">I Saved My Codes →</a>
+            <a href="{% url 'dashboard' %}" class="btn-primary" style="display: block; text-decoration: none; box-sizing: border-box; text-align: center;">I Saved My Codes →</a>
 
         {% elif already_setup %}
             <div class="success-text">✓ 2FA Active</div>
